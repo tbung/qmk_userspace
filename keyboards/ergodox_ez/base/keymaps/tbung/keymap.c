@@ -1,16 +1,7 @@
 #include QMK_KEYBOARD_H
 #include "version.h"
 
-// Tap Dance declarations
-enum {
-    TD_BSPC,
-};
-
-// Tap Dance definitions
-tap_dance_action_t tap_dance_actions[] = {
-    // Tap once for Escape, twice for Caps Lock
-    [TD_BSPC] = ACTION_TAP_DANCE_DOUBLE(KC_BSPC, LCTL(KC_BSPC)),
-};
+#define ADAPTIVE_TERM 180
 
 enum layers {
     BASE, // default layer
@@ -20,6 +11,7 @@ enum layers {
 
 enum custom_keycodes {
     VRSN = SAFE_RANGE,
+    ADAPTIVE_BSPC,
 };
 
 // clang-format off
@@ -47,14 +39,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  */
 [BASE] = LAYOUT_ergodox_pretty(
   // left hand
-  KC_EQL,          KC_1,        KC_2,          KC_3,    KC_4,    KC_5,    KC_LEFT,              KC_RGHT,      KC_6,    KC_7,    KC_8,    KC_9,    KC_0,              KC_MINS,
-  KC_DEL,          KC_Q,        KC_W,          KC_E,    KC_R,    KC_T,    TG(SYMB),             TG(SYMB),     KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,              KC_BSLS,
-  GUI_T(KC_ESC),   KC_A,        KC_S,          KC_D,    KC_F,    KC_G,                                        KC_H,    KC_J,    KC_K,    KC_L,    LT(MDIA, KC_SCLN), GUI_T(KC_QUOT),
-  KC_LSFT,         CTL_T(KC_Z), LALT_T(KC_X),  KC_C,    KC_V,    KC_B,    ALL_T(KC_NO),                  MEH_T(KC_NO), KC_N,    KC_M,    KC_COMM, RALT_T(KC_DOT),    CTL_T(KC_SLSH), KC_RSFT,
-  LT(SYMB,KC_GRV), KC_QUOT,     MO(SYMB), KC_LEFT, KC_RGHT,                                              KC_UP,   KC_DOWN, MO(SYMB), KC_LBRC, KC_RBRC,
-                                                                 KC_LALT, KC_LGUI,                 KC_LALT, CTL_T(KC_ESC),
-                                                                          KC_HOME,                 KC_PGUP,
-                                                        LT(MDIA, KC_SPC), TD(TD_BSPC), KC_END,                  KC_PGDN, KC_TAB, KC_ENT
+  KC_EQL,          KC_1,        KC_2,          KC_3,    KC_4,    KC_5,    KC_LEFT,              KC_RGHT,      KC_6, KC_7,  KC_8,     KC_9,           KC_0,              KC_MINS,
+  KC_DEL,          KC_Q,        KC_W,          KC_E,    KC_R,    KC_T,    TG(SYMB),             TG(SYMB),     KC_Y, KC_U,  KC_I,     KC_O,           KC_P,              KC_BSLS,
+  GUI_T(KC_ESC),   KC_A,        KC_S,          KC_D,    KC_F,    KC_G,                                        KC_H, KC_J,  KC_K,     KC_L,           LT(MDIA, KC_SCLN), GUI_T(KC_QUOT),
+  KC_LSFT,         CTL_T(KC_Z), LALT_T(KC_X),  KC_C,    KC_V,    KC_B,    ALL_T(KC_NO),         MEH_T(KC_NO), KC_N, KC_M,  KC_COMM,  RALT_T(KC_DOT), CTL_T(KC_SLSH),    KC_RSFT,
+  LT(SYMB,KC_GRV), KC_QUOT,     MO(SYMB),      KC_LEFT, KC_RGHT,                                                    KC_UP, KC_DOWN,  MO(SYMB),       KC_LBRC,           KC_RBRC,
+                                                                      KC_LALT, KC_LGUI,         KC_LALT, CTL_T(KC_ESC),
+                                                                               KC_HOME,         KC_PGUP,
+                                               LT(MDIA, KC_SPC), ADAPTIVE_BSPC, KC_END,         KC_PGDN, KC_TAB, KC_ENT
 ),
 /* Keymap 1: Symbol Layer
  *
@@ -124,9 +116,56 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 // clang-format on
 
+static struct adaptive_state {
+    uint16_t previous_keycode;
+    uint32_t time;
+} adaptive_state = {KC_NO, 0};
+
+// adapted from https://github.com/openorclose/qmk_firmware/blob/master/keyboards/crkbd/keymaps/openorclose/features/adaptive_keys.h
+bool process_adaptive_keys(uint16_t keycode, keyrecord_t *record) {
+    bool exit_code = true;
+
+    if (record->event.pressed) {
+        uint8_t mods = get_mods();
+
+        // don't interfere if modifiers are involved
+        if (mods & MOD_MASK_CAG) {
+            return true;
+        }
+
+        if ((timer_elapsed32(adaptive_state.time) >= ADAPTIVE_TERM)) {
+            goto adaptive_keys_save_keycode;
+        }
+
+        switch (adaptive_state.previous_keycode) {
+            case ADAPTIVE_BSPC:
+                switch (keycode) {
+                    case ADAPTIVE_BSPC:
+                        tap_code16(LCTL(KC_BSPC));
+                        exit_code = false;
+                        break;
+                }
+                break;
+        }
+
+    adaptive_keys_save_keycode:
+        adaptive_state.previous_keycode = keycode;
+        adaptive_state.time             = timer_read32(); // (re)start prior_key timing
+    }
+
+    return exit_code;
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!process_adaptive_keys(keycode, record)) {
+        return false;
+    }
+
     if (record->event.pressed) {
         switch (keycode) {
+            case ADAPTIVE_BSPC:
+                tap_code(KC_BSPC);
+                return false;
             case VRSN:
                 SEND_STRING(QMK_KEYBOARD "/" QMK_KEYMAP " @ " QMK_VERSION);
                 return false;
@@ -135,12 +174,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
+void matrix_scan_user(void) {
+    if (timer_elapsed32(adaptive_state.time) >= ADAPTIVE_TERM) { // 30 seconds
+        adaptive_state.time             = timer_read32();
+        adaptive_state.previous_keycode = KC_NO;
+    }
+}
+
 // Runs just one time when the keyboard initializes.
-void keyboard_post_init_user(void) {
-#ifdef RGBLIGHT_COLOR_LAYER_0
-    rgblight_setrgb(RGBLIGHT_COLOR_LAYER_0);
-#endif
-};
+void keyboard_post_init_user(void) {};
 
 // Runs whenever there is a layer state change.
 layer_state_t layer_state_set_user(layer_state_t state) {
@@ -152,56 +194,32 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     uint8_t layer = get_highest_layer(state);
     switch (layer) {
         case 0:
-#ifdef RGBLIGHT_COLOR_LAYER_0
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_0);
-#endif
             break;
         case 1:
             ergodox_right_led_1_on();
-#ifdef RGBLIGHT_COLOR_LAYER_1
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_1);
-#endif
             break;
         case 2:
             ergodox_right_led_2_on();
-#ifdef RGBLIGHT_COLOR_LAYER_2
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_2);
-#endif
             break;
         case 3:
             ergodox_right_led_3_on();
-#ifdef RGBLIGHT_COLOR_LAYER_3
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_3);
-#endif
             break;
         case 4:
             ergodox_right_led_1_on();
             ergodox_right_led_2_on();
-#ifdef RGBLIGHT_COLOR_LAYER_4
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_4);
-#endif
             break;
         case 5:
             ergodox_right_led_1_on();
             ergodox_right_led_3_on();
-#ifdef RGBLIGHT_COLOR_LAYER_5
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_5);
-#endif
             break;
         case 6:
             ergodox_right_led_2_on();
             ergodox_right_led_3_on();
-#ifdef RGBLIGHT_COLOR_LAYER_6
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_6);
-#endif
             break;
         case 7:
             ergodox_right_led_1_on();
             ergodox_right_led_2_on();
             ergodox_right_led_3_on();
-#ifdef RGBLIGHT_COLOR_LAYER_7
-            rgblight_setrgb(RGBLIGHT_COLOR_LAYER_7);
-#endif
             break;
         default:
             break;
