@@ -164,10 +164,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (record->event.pressed) {
         switch (keycode) {
             case ADAPTIVE_BSPC:
-                tap_code(KC_BSPC);
+                register_code(KC_BSPC);
                 return false;
             case VRSN:
                 SEND_STRING(QMK_KEYBOARD "/" QMK_KEYMAP " @ " QMK_VERSION);
+                return false;
+        }
+    } else {
+        switch (keycode) {
+            case ADAPTIVE_BSPC:
+                unregister_code(KC_BSPC);
                 return false;
         }
     }
