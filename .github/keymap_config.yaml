@@ -1,0 +1,19 @@
+parse_config:
+
+  raw_binding_map:
+    MO(SYMB): symbols
+    LT(MDIA, KC_SPC):
+      tap: SPACE
+      hold: misc
+    LT(MDIA, KC_SCLN):
+      tap: ;
+      hold: misc
+    LT(SYMB, KC_GRV):
+      tap: "`"
+      hold: symbols
+    TG(SYMB):
+      tap: symbols
+      hold: toggle
+    ADAPTIVE_BSPC:
+      tap: BSPC
+      hold: adaptive

@@ -14,7 +14,7 @@ jobs:
       qmk_ref: master
 
   keymap-image:
-    name: Convert keymap.c to json
+    name: Generate keymap image
     runs-on: ubuntu-latest
 
     steps:
@@ -53,14 +53,14 @@ jobs:
         run: |
           qmk userspace-doctor
 
-      - name: Build
+      - name: Render images
         run: |
           qmk c2json --no-cpp -kb ergodox_ez/base -km tbung -o keymap.json
-          keymap parse -q keymap.json -o keymap.yaml
-          keymap draw -o keymap.svg keymap.yaml
+          keymap -c .github/keymap_config.yaml parse -l default symbols misc -q keymap.json -o keymap.yaml
+          keymap -c .github/keymap_config.yaml draw -o keymap.svg keymap.yaml
           inkscape --export-background-opacity=0  ./keymap.svg -o keymap.png
 
-      - name: Upload binaries
+      - name: Upload images
         uses: actions/upload-artifact@v4
         if: always() && !cancelled()
         continue-on-error: true
