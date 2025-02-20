@@ -11,8 +11,35 @@ enum layers {
 
 enum custom_keycodes {
     VRSN = SAFE_RANGE,
+};
+
+typedef enum {
+    TD_NONE,
+    TD_UNKNOWN,
+    TD_SINGLE_TAP,
+    TD_SINGLE_HOLD,
+    TD_DOUBLE_TAP,
+    TD_DOUBLE_HOLD,
+    TD_DOUBLE_SINGLE_TAP, // Send two single taps
+    TD_TRIPLE_TAP,
+    TD_TRIPLE_HOLD
+} td_state_t;
+
+typedef struct {
+    bool       is_press_action;
+    td_state_t state;
+} td_tap_t;
+
+// Tap dance enums
+enum {
     ADAPTIVE_BSPC,
 };
+
+td_state_t td_current_dance(tap_dance_state_t *state);
+
+// For the x tap dance. Put it here so it can be used in any keymap
+void td_bspc_finished(tap_dance_state_t *state, void *user_data);
+void td_bspc_reset(tap_dance_state_t *state, void *user_data);
 
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -45,7 +72,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   _______,       _______,     MO(SYMBOLS),  KC_LEFT, KC_RGHT,                                   KC_UP, KC_DOWN,  MO(SYMBOLS),    _______,              _______,
                                                            _______, _______,     _______, _______,
                                                                     _______,     _______,
-                                LT(NAVIGAT, KC_SPC), ADAPTIVE_BSPC, _______,     _______, KC_TAB, KC_ENT
+                            LT(SYMBOLS, KC_SPC), TD(ADAPTIVE_BSPC), _______,     _______, KC_TAB, LSFT_T(KC_ENT)
 ),
 /* Keymap 1: Symbol Layer
  *
@@ -113,75 +140,86 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 // clang-format on
 
-static struct adaptive_state {
-    uint16_t previous_keycode;
-    uint32_t time;
-} adaptive_state = {KC_NO, 0};
-
-// adapted from https://github.com/openorclose/qmk_firmware/blob/master/keyboards/crkbd/keymaps/openorclose/features/adaptive_keys.h
-bool process_adaptive_keys(uint16_t keycode, keyrecord_t *record) {
-    bool exit_code = true;
-
-    if (record->event.pressed) {
-        uint8_t mods = get_mods();
-
-        // don't interfere if modifiers are involved
-        if (mods & MOD_MASK_CAG) {
-            return true;
-        }
-
-        if ((timer_elapsed32(adaptive_state.time) >= ADAPTIVE_TERM)) {
-            goto adaptive_keys_save_keycode;
-        }
-
-        switch (adaptive_state.previous_keycode) {
-            case ADAPTIVE_BSPC:
-                switch (keycode) {
-                    case ADAPTIVE_BSPC:
-                        tap_code16(LCTL(KC_BSPC));
-                        exit_code = false;
-                        break;
-                }
-                break;
-        }
-
-    adaptive_keys_save_keycode:
-        adaptive_state.previous_keycode = keycode;
-        adaptive_state.time             = timer_read32(); // (re)start prior_key timing
+td_state_t td_current_dance(tap_dance_state_t *state) {
+    if (state->count == 1) {
+        if (state->interrupted || !state->pressed) return TD_SINGLE_TAP;
+        // Key has not been interrupted, but the key is still held. Means you want to send a 'HOLD'.
+        else
+            return TD_SINGLE_HOLD;
+    } else if (state->count == 2) {
+        // TD_DOUBLE_SINGLE_TAP is to distinguish between typing "pepper", and actually wanting a double tap
+        // action when hitting 'pp'. Suggested use case for this return value is when you want to send two
+        // keystrokes of the key, and not the 'double tap' action/macro.
+        if (state->interrupted)
+            return TD_DOUBLE_SINGLE_TAP;
+        else if (state->pressed)
+            return TD_DOUBLE_HOLD;
+        else
+            return TD_DOUBLE_TAP;
     }
 
-    return exit_code;
+    // Assumes no one is trying to type the same letter three times (at least not quickly).
+    // If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
+    // an exception here to return a 'TD_TRIPLE_SINGLE_TAP', and define that enum just like 'TD_DOUBLE_SINGLE_TAP'
+    if (state->count == 3) {
+        if (state->interrupted || !state->pressed)
+            return TD_TRIPLE_TAP;
+        else
+            return TD_TRIPLE_HOLD;
+    } else
+        return TD_UNKNOWN;
 }
 
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    if (!process_adaptive_keys(keycode, record)) {
-        return false;
+static td_tap_t td_bspc_tap_state = {.is_press_action = true, .state = TD_NONE};
+
+void td_bspc_finished(tap_dance_state_t *state, void *user_data) {
+    td_bspc_tap_state.state = td_current_dance(state);
+    switch (td_bspc_tap_state.state) {
+        case TD_SINGLE_HOLD:
+            register_code(KC_LSFT);
+            break;
+        case TD_DOUBLE_HOLD:
+            tap_code16(LCTL(KC_BSPC));
+            break;
+        case TD_DOUBLE_SINGLE_TAP:
+            tap_code16(LCTL(KC_BSPC));
+            break;
+        default:
+            break;
     }
+}
+
+void td_bspc_reset(tap_dance_state_t *state, void *user_data) {
+    switch (td_bspc_tap_state.state) {
+        case TD_SINGLE_HOLD:
+            unregister_code(KC_LSFT);
+            break;
+        default:
+            break;
+    }
+    td_bspc_tap_state.state = TD_NONE;
+}
+
+tap_dance_action_t tap_dance_actions[] = {[ADAPTIVE_BSPC] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, td_bspc_finished, td_bspc_reset)};
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    tap_dance_action_t *action;
 
     if (record->event.pressed) {
         switch (keycode) {
-            case ADAPTIVE_BSPC:
-                register_code(KC_BSPC);
-                return false;
             case VRSN:
                 SEND_STRING(QMK_KEYBOARD "/" QMK_KEYMAP " @ " QMK_VERSION);
                 return false;
         }
     } else {
         switch (keycode) {
-            case ADAPTIVE_BSPC:
-                unregister_code(KC_BSPC);
-                return false;
+            case TD(ADAPTIVE_BSPC):
+                action = &tap_dance_actions[QK_TAP_DANCE_GET_INDEX(keycode)];
+                if (action->state.count == 1 && !action->state.finished) tap_code(KC_BSPC);
+                if (action->state.count == 2 && !action->state.finished) tap_code16(LCTL(KC_BSPC));
         }
     }
     return true;
-}
-
-void matrix_scan_user(void) {
-    if (timer_elapsed32(adaptive_state.time) >= ADAPTIVE_TERM) { // 30 seconds
-        adaptive_state.time             = timer_read32();
-        adaptive_state.previous_keycode = KC_NO;
-    }
 }
 
 // Runs just one time when the keyboard initializes.
