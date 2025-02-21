@@ -173,6 +173,7 @@ td_state_t td_current_dance(tap_dance_state_t *state) {
 static td_tap_t td_bspc_tap_state = {.is_press_action = true, .state = TD_NONE};
 
 void td_bspc_finished(tap_dance_state_t *state, void *user_data) {
+    os_variant_t os         = detected_host_os();
     td_bspc_tap_state.state = td_current_dance(state);
     switch (td_bspc_tap_state.state) {
         case TD_SINGLE_HOLD:
@@ -182,7 +183,10 @@ void td_bspc_finished(tap_dance_state_t *state, void *user_data) {
             register_code(KC_BSPC);
             break;
         case TD_DOUBLE_SINGLE_TAP:
-            tap_code16(LCTL(KC_BSPC));
+            if (os == OS_MACOS || os == OS_IOS)
+                tap_code16(LALT(KC_BSPC));
+            else
+                tap_code16(LCTL(KC_BSPC));
             break;
         default:
             break;
@@ -207,6 +211,7 @@ tap_dance_action_t tap_dance_actions[] = {[ADAPTIVE_BSPC] = ACTION_TAP_DANCE_FN_
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     tap_dance_action_t *action;
+    os_variant_t        os = detected_host_os();
 
     if (record->event.pressed) {
         switch (keycode) {
@@ -219,7 +224,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             case TD(ADAPTIVE_BSPC):
                 action = &tap_dance_actions[QK_TAP_DANCE_GET_INDEX(keycode)];
                 if (action->state.count == 1 && !action->state.finished) tap_code(KC_BSPC);
-                if (action->state.count == 2 && !action->state.finished) tap_code16(LCTL(KC_BSPC));
+                if (action->state.count == 2 && !action->state.finished) {
+                    if (os == OS_MACOS || os == OS_IOS)
+                        tap_code16(LALT(KC_BSPC));
+                    else
+                        tap_code16(LCTL(KC_BSPC));
+                }
         }
     }
     return true;
