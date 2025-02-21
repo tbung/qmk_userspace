@@ -11,6 +11,10 @@ enum layers {
 
 enum custom_keycodes {
     VRSN = SAFE_RANGE,
+    C_UNDO,
+    C_CUT,
+    C_COPY,
+    C_PASTE,
 };
 
 typedef enum {
@@ -127,15 +131,15 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                                 `--------------------'       `--------------------'
  */
 [NAV] = LAYOUT_ergodox_pretty(
-  _______, _______,       _______,       _______,       _______,      _______, _______,     _______, _______, _______, _______, _______, _______, _______,
-  _______, _______,       _______,       _______,       _______,      _______, _______,     _______, _______, _______, _______, _______, _______, _______,
-  _______, OSM(MOD_LCTL), OSM(MOD_LALT), OSM(MOD_LGUI), _______,      _______,                       KC_MS_L, KC_MS_D, KC_MS_U, KC_MS_R, _______, _______,
-  _______, LCTL(KC_Z),    LSFT(KC_DEL),  LCTL(KC_INS),  LSFT(KC_INS), _______, _______,     _______, _______, _______, _______, _______, _______, _______,
-  _______, _______,       _______,       _______,       _______,                                              _______, _______, _______, _______, _______,
+  _______, _______,       _______,       _______,       _______, _______, _______,     _______, _______, _______, _______, _______, _______, _______,
+  _______, _______,       _______,       _______,       _______, _______, _______,     _______, _______, _______, _______, _______, _______, _______,
+  _______, OSM(MOD_LCTL), OSM(MOD_LALT), OSM(MOD_LGUI), _______, _______,                       KC_MS_L, KC_MS_D, KC_MS_U, KC_MS_R, _______, _______,
+  _______, LCTL(KC_Z),    LSFT(KC_DEL),  C_COPY,        C_PASTE, _______, _______,     _______, _______, _______, _______, _______, _______, _______,
+  _______, _______,       _______,       _______,       _______,                                         _______, _______, _______, _______, _______,
 
-                                                                      _______, _______,     _______, _______,
-                                                                               _______,     _______,
-                                                             _______, _______, _______,     _______, _______, _______
+                                                                 _______, _______,     _______, _______,
+                                                                          _______,     _______,
+                                                        _______, _______, _______,     _______, _______, _______
 ),
 };
 // clang-format on
@@ -218,9 +222,57 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             case VRSN:
                 SEND_STRING(QMK_KEYBOARD "/" QMK_KEYMAP " @ " QMK_VERSION);
                 return false;
+            case C_UNDO:
+                if (os == OS_MACOS || os == OS_IOS)
+                    register_code16(LCMD(KC_Z));
+                else
+                    register_code16(LCTL(KC_Z));
+                return false;
+            case C_CUT:
+                if (os == OS_MACOS || os == OS_IOS)
+                    register_code16(LCMD(KC_X));
+                else
+                    register_code16(LSFT(KC_DEL));
+                return false;
+            case C_COPY:
+                if (os == OS_MACOS || os == OS_IOS)
+                    register_code16(LCMD(KC_C));
+                else
+                    register_code16(LCTL(KC_INS));
+                return false;
+            case C_PASTE:
+                if (os == OS_MACOS || os == OS_IOS)
+                    register_code16(LCMD(KC_V));
+                else
+                    register_code16(LSFT(KC_INS));
+                return false;
         }
     } else {
         switch (keycode) {
+            case C_UNDO:
+                if (os == OS_MACOS || os == OS_IOS)
+                    unregister_code16(LCMD(KC_Z));
+                else
+                    unregister_code16(LCTL(KC_Z));
+                return false;
+            case C_CUT:
+                if (os == OS_MACOS || os == OS_IOS)
+                    unregister_code16(LCMD(KC_X));
+                else
+                    unregister_code16(LSFT(KC_DEL));
+                return false;
+            case C_COPY:
+                if (os == OS_MACOS || os == OS_IOS)
+                    unregister_code16(LCMD(KC_C));
+                else
+                    unregister_code16(LCTL(KC_INS));
+                return false;
+            case C_PASTE:
+                if (os == OS_MACOS || os == OS_IOS)
+                    unregister_code16(LCMD(KC_V));
+                else
+                    unregister_code16(LSFT(KC_INS));
+                return false;
             case TD(ADAPTIVE_BSPC):
                 action = &tap_dance_actions[QK_TAP_DANCE_GET_INDEX(keycode)];
                 if (action->state.count == 1 && !action->state.finished) tap_code(KC_BSPC);
