@@ -1,3 +1,4 @@
+#include "quantum_keycodes_legacy.h"
 #include QMK_KEYBOARD_H
 #include "version.h"
 
@@ -26,7 +27,9 @@ typedef enum {
     TD_DOUBLE_HOLD,
     TD_DOUBLE_SINGLE_TAP, // Send two single taps
     TD_TRIPLE_TAP,
-    TD_TRIPLE_HOLD
+    TD_TRIPLE_HOLD,
+    TD_MULTI_TAP,
+    TD_MULTI_HOLD,
 } td_state_t;
 
 typedef struct {
@@ -72,11 +75,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   KC_EQL,        KC_1,         KC_2,         KC_3,         KC_4,    KC_5, KC_MUTE,     KC_MPLY, KC_6, KC_7,  KC_8,            KC_9,           KC_0,            KC_MINS,
   KC_DEL,        KC_Q,         KC_W,         KC_E,         KC_R,    KC_T, KC_VOLU,     MS_WHLU, KC_Y, KC_U,  KC_I,            KC_O,           KC_P,            KC_BSLS,
   KC_ESC,        KC_A,         KC_S,         KC_D,         KC_F,    KC_G,                       KC_H, KC_J,  KC_K,            KC_L,           KC_SCLN,         KC_QUOT,
-  OSM(MOD_LSFT), LCTL_T(KC_Z), LALT_T(KC_X), LGUI_T(KC_C), KC_V,    KC_B, KC_VOLD,     MS_WHLD, KC_N, KC_M,  RGUI_T(KC_COMM), RALT_T(KC_DOT), RCTL_T(KC_SLSH), OSM(MOD_RSFT),
+  OSM(MOD_LSFT), LCTL_T(KC_Z), LALT_T(KC_X), LGUI_T(KC_C), KC_V,    KC_B, KC_VOLD,     MS_WHLD, KC_N, KC_M,  LGUI_T(KC_COMM), RALT_T(KC_DOT), RCTL_T(KC_SLSH), OSM(MOD_RSFT),
   _______,       _______,      _______,      KC_LEFT,      KC_RGHT,                                   KC_UP, KC_DOWN,         _______,        _______,         _______,
-                                                                 _______, _______,     _______, _______,
+                                                                 _______, _______,     _______, KC_ESC,
                                                                           _______,     _______,
-                                      LT(NAV, KC_SPC), TD(ADAPTIVE_BSPC), _______,     _______, LSFT_T(KC_TAB), LT(SYMBOLS, KC_ENT)
+                                       LSFT_T(KC_SPC), TD(ADAPTIVE_BSPC), _______,     _______, LT(SYMBOLS, KC_TAB), KC_ENT
 ),
 /* Keymap 1: Symbol Layer
  *
@@ -101,13 +104,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  */
 [SYMBOLS] = LAYOUT_ergodox_pretty(
   _______, KC_F1,   KC_F2,   KC_F3,   KC_F4,   KC_F5,   _______,     _______, KC_F6,   KC_F7,   KC_F8,         KC_F9,         KC_F10,        KC_F11,
-  _______, KC_EXLM, KC_LCBR, KC_RCBR, KC_AT,   KC_PERC, _______,     _______, _______, _______, _______,       _______,       _______,       KC_F12,
-  KC_ASTR, KC_PLUS, KC_LPRN, KC_RPRN, KC_EQL,  KC_GRV,                        _______, _______, OSM(MOD_RGUI), OSM(MOD_RALT), OSM(MOD_RCTL), _______,
-  KC_HASH, KC_AMPR, KC_LBRC, KC_RBRC, KC_CIRC, KC_TILD, _______,     _______, _______, _______, _______,       _______,       _______,       _______,
-  _______, _______, KC_UNDS, KC_MINS, KC_DLR,                                          _______, _______,       _______,       _______,       _______,
+  _______, KC_EXLM, KC_LCBR, KC_RCBR, KC_UNDS, KC_PERC, _______,     _______, _______, _______, _______,       _______,       _______,       KC_F12,
+  KC_ASTR, KC_PLUS, KC_LPRN, KC_RPRN, KC_EQL,  KC_GRV,                        _______, _______, _______,       _______,       _______,       _______,
+  KC_HASH, KC_MINS, KC_LBRC, KC_RBRC, KC_CIRC, KC_TILD, _______,     _______, _______, _______, KC_LGUI,       KC_RALT,       KC_RCTL,       QK_RBT,
+  _______, _______, KC_AT,   KC_AMPR, KC_DLR,                                          _______, _______,       _______,       _______,       _______,
                                                _______, _______,     _______, _______,
                                                         _______,     _______,
-                                      _______, _______, _______,     _______, _______, _______
+                                      _______, KC_BSPC, _______,     _______, _______, _______
 ),
 /* Keymap 2: Media and mouse keys
  *
@@ -133,13 +136,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [NAV] = LAYOUT_ergodox_pretty(
   _______, _______,       _______,       _______,       _______, _______, _______,     _______, _______, _______, _______, _______, _______, _______,
   _______, _______,       _______,       _______,       _______, _______, _______,     _______, _______, _______, _______, _______, _______, _______,
-  _______, OSM(MOD_LCTL), OSM(MOD_LALT), OSM(MOD_LGUI), _______, _______,                       KC_MS_L, KC_MS_D, KC_MS_U, KC_MS_R, _______, _______,
+  _______, KC_LCTL,       KC_LALT,       KC_LGUI,      _______, _______,                       KC_MS_L, KC_MS_D, KC_MS_U, KC_MS_R, _______, _______,
   _______, LCTL(KC_Z),    LSFT(KC_DEL),  C_COPY,        C_PASTE, _______, _______,     _______, _______, _______, _______, _______, _______, _______,
-  _______, _______,       _______,       _______,       _______,                                         _______, _______, _______, _______, _______,
+  _______, _______,       _______,       _______,       _______,                                      KC_MS_BTN3, _______, _______, _______, _______,
 
                                                                  _______, _______,     _______, _______,
                                                                           _______,     _______,
-                                                        _______, _______, _______,     _______, _______, _______
+                                                        _______, _______, _______,     _______, KC_MS_BTN1, KC_MS_BTN2
 ),
 };
 // clang-format on
@@ -170,8 +173,12 @@ td_state_t td_current_dance(tap_dance_state_t *state) {
             return TD_TRIPLE_TAP;
         else
             return TD_TRIPLE_HOLD;
-    } else
-        return TD_UNKNOWN;
+    }
+
+    if (state->interrupted || !state->pressed)
+        return TD_MULTI_TAP;
+    else
+        return TD_MULTI_HOLD;
 }
 
 static td_tap_t td_bspc_tap_state = {.is_press_action = true, .state = TD_NONE};
@@ -181,12 +188,17 @@ void td_bspc_finished(tap_dance_state_t *state, void *user_data) {
     td_bspc_tap_state.state = td_current_dance(state);
     switch (td_bspc_tap_state.state) {
         case TD_SINGLE_HOLD:
-            register_code(KC_LSFT);
+            // register_code(KC_LSFT);
+            layer_on(NAV);
             break;
         case TD_DOUBLE_HOLD:
+        case TD_TRIPLE_HOLD:
+        case TD_MULTI_HOLD:
             register_code(KC_BSPC);
             break;
         case TD_DOUBLE_SINGLE_TAP:
+        case TD_TRIPLE_TAP:
+        case TD_MULTI_TAP:
             if (os == OS_MACOS || os == OS_IOS)
                 tap_code16(LALT(KC_BSPC));
             else
@@ -200,9 +212,12 @@ void td_bspc_finished(tap_dance_state_t *state, void *user_data) {
 void td_bspc_reset(tap_dance_state_t *state, void *user_data) {
     switch (td_bspc_tap_state.state) {
         case TD_SINGLE_HOLD:
-            unregister_code(KC_LSFT);
+            // unregister_code(KC_LSFT);
+            layer_off(NAV);
             break;
         case TD_DOUBLE_HOLD:
+        case TD_TRIPLE_HOLD:
+        case TD_MULTI_HOLD:
             unregister_code(KC_BSPC);
             break;
         default:
@@ -276,7 +291,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             case TD(ADAPTIVE_BSPC):
                 action = &tap_dance_actions[QK_TAP_DANCE_GET_INDEX(keycode)];
                 if (action->state.count == 1 && !action->state.finished) tap_code(KC_BSPC);
-                if (action->state.count == 2 && !action->state.finished) {
+                if (action->state.count >= 2 && !action->state.finished) {
                     if (os == OS_MACOS || os == OS_IOS)
                         tap_code16(LALT(KC_BSPC));
                     else
