@@ -1,4 +1,5 @@
-#include "quantum_keycodes_legacy.h"
+#include "tap_dance.h"
+
 #include QMK_KEYBOARD_H
 #include "version.h"
 
@@ -16,37 +17,12 @@ enum custom_keycodes {
     C_CUT,
     C_COPY,
     C_PASTE,
+    C_BSPC,
 };
 
-typedef enum {
-    TD_NONE,
-    TD_UNKNOWN,
-    TD_SINGLE_TAP,
-    TD_SINGLE_HOLD,
-    TD_DOUBLE_TAP,
-    TD_DOUBLE_HOLD,
-    TD_DOUBLE_SINGLE_TAP, // Send two single taps
-    TD_TRIPLE_TAP,
-    TD_TRIPLE_HOLD,
-    TD_MULTI_TAP,
-    TD_MULTI_HOLD,
-} td_state_t;
-
-typedef struct {
-    bool       is_press_action;
-    td_state_t state;
-} td_tap_t;
-
-// Tap dance enums
-enum {
-    ADAPTIVE_BSPC,
+tap_dance_action_t tap_dance_actions[] = {
+    [TD_KC_BSPC] = ACTION_TAP_DANCE_FN_ADVANCED_WITH_RELEASE(NULL, td_bspc_on_each_release, td_bspc_on_dance_finished, td_bspc_on_dance_reset),
 };
-
-td_state_t td_current_dance(tap_dance_state_t *state);
-
-// For the x tap dance. Put it here so it can be used in any keymap
-void td_bspc_finished(tap_dance_state_t *state, void *user_data);
-void td_bspc_reset(tap_dance_state_t *state, void *user_data);
 
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -79,7 +55,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   _______,       _______,      _______,      KC_LEFT,      KC_RGHT,                                   KC_UP, KC_DOWN,         _______,        _______,         _______,
                                                                  _______, _______,     _______, KC_ESC,
                                                                           _______,     _______,
-                                       LSFT_T(KC_SPC), TD(ADAPTIVE_BSPC), _______,     _______, LT(SYMBOLS, KC_TAB), KC_ENT
+                                       LSFT_T(KC_SPC), TD(TD_KC_BSPC), _______,     _______, LT(SYMBOLS, KC_TAB), KC_ENT
 ),
 /* Keymap 1: Symbol Layer
  *
@@ -110,7 +86,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   _______, _______, KC_AT,   KC_AMPR, KC_DLR,                                          _______, _______,       _______,       _______,       _______,
                                                _______, _______,     _______, _______,
                                                         _______,     _______,
-                                      _______, KC_BSPC, _______,     _______, _______, _______
+                                      _______,  C_BSPC, _______,     _______, _______, _______
 ),
 /* Keymap 2: Media and mouse keys
  *
@@ -147,90 +123,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 // clang-format on
 
-td_state_t td_current_dance(tap_dance_state_t *state) {
-    if (state->count == 1) {
-        if (state->interrupted || !state->pressed) return TD_SINGLE_TAP;
-        // Key has not been interrupted, but the key is still held. Means you want to send a 'HOLD'.
-        else
-            return TD_SINGLE_HOLD;
-    } else if (state->count == 2) {
-        // TD_DOUBLE_SINGLE_TAP is to distinguish between typing "pepper", and actually wanting a double tap
-        // action when hitting 'pp'. Suggested use case for this return value is when you want to send two
-        // keystrokes of the key, and not the 'double tap' action/macro.
-        if (state->interrupted)
-            return TD_DOUBLE_SINGLE_TAP;
-        else if (state->pressed)
-            return TD_DOUBLE_HOLD;
-        else
-            return TD_DOUBLE_TAP;
-    }
-
-    // Assumes no one is trying to type the same letter three times (at least not quickly).
-    // If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
-    // an exception here to return a 'TD_TRIPLE_SINGLE_TAP', and define that enum just like 'TD_DOUBLE_SINGLE_TAP'
-    if (state->count == 3) {
-        if (state->interrupted || !state->pressed)
-            return TD_TRIPLE_TAP;
-        else
-            return TD_TRIPLE_HOLD;
-    }
-
-    if (state->interrupted || !state->pressed)
-        return TD_MULTI_TAP;
-    else
-        return TD_MULTI_HOLD;
-}
-
-static td_tap_t td_bspc_tap_state = {.is_press_action = true, .state = TD_NONE};
-
-void td_bspc_finished(tap_dance_state_t *state, void *user_data) {
-    os_variant_t os         = detected_host_os();
-    td_bspc_tap_state.state = td_current_dance(state);
-    switch (td_bspc_tap_state.state) {
-        case TD_SINGLE_HOLD:
-            // register_code(KC_LSFT);
-            layer_on(NAV);
-            break;
-        case TD_DOUBLE_HOLD:
-        case TD_TRIPLE_HOLD:
-        case TD_MULTI_HOLD:
-            register_code(KC_BSPC);
-            break;
-        case TD_DOUBLE_SINGLE_TAP:
-        case TD_TRIPLE_TAP:
-        case TD_MULTI_TAP:
-            if (os == OS_MACOS || os == OS_IOS)
-                tap_code16(LALT(KC_BSPC));
-            else
-                tap_code16(LCTL(KC_BSPC));
-            break;
-        default:
-            break;
-    }
-}
-
-void td_bspc_reset(tap_dance_state_t *state, void *user_data) {
-    switch (td_bspc_tap_state.state) {
-        case TD_SINGLE_HOLD:
-            // unregister_code(KC_LSFT);
-            layer_off(NAV);
-            break;
-        case TD_DOUBLE_HOLD:
-        case TD_TRIPLE_HOLD:
-        case TD_MULTI_HOLD:
-            unregister_code(KC_BSPC);
-            break;
-        default:
-            break;
-    }
-    td_bspc_tap_state.state = TD_NONE;
-}
-
-tap_dance_action_t tap_dance_actions[] = {[ADAPTIVE_BSPC] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, td_bspc_finished, td_bspc_reset)};
-
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    tap_dance_action_t *action;
-    os_variant_t        os = detected_host_os();
+    // tap_dance_action_t *action;
+    os_variant_t os = detected_host_os();
 
     if (record->event.pressed) {
         switch (keycode) {
@@ -261,6 +156,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 else
                     register_code16(LSFT(KC_INS));
                 return false;
+            case C_BSPC:
+                if (os == OS_MACOS || os == OS_IOS)
+                    register_code16(LALT(KC_BSPC));
+                else
+                    register_code16(LCTL(KC_BSPC));
+                return false;
         }
     } else {
         switch (keycode) {
@@ -288,15 +189,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 else
                     unregister_code16(LSFT(KC_INS));
                 return false;
-            case TD(ADAPTIVE_BSPC):
-                action = &tap_dance_actions[QK_TAP_DANCE_GET_INDEX(keycode)];
-                if (action->state.count == 1 && !action->state.finished) tap_code(KC_BSPC);
-                if (action->state.count >= 2 && !action->state.finished) {
-                    if (os == OS_MACOS || os == OS_IOS)
-                        tap_code16(LALT(KC_BSPC));
-                    else
-                        tap_code16(LCTL(KC_BSPC));
-                }
+            case C_BSPC:
+                if (os == OS_MACOS || os == OS_IOS)
+                    unregister_code16(LALT(KC_BSPC));
+                else
+                    unregister_code16(LCTL(KC_BSPC));
+                return false;
         }
     }
     return true;
