@@ -9,7 +9,7 @@ void td_bspc_on_each_release(tap_dance_state_t *state, void *user_data) {
 void td_bspc_on_dance_finished(tap_dance_state_t *state, void *user_data) {
     if (state->count == 1 && !state->interrupted) {
         layer_on(2);
-    } else if (state->count >= 2 && !state->interrupted) {
+    } else if (state->count >= 2 && state->pressed) {
         register_code(KC_BSPC);
     }
 }
