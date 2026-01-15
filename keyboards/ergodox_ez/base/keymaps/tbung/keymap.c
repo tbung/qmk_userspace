@@ -119,7 +119,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   _______,    HYPR(KC_1), HYPR(KC_2),   HYPR(KC_3), HYPR(KC_4), HYPR(KC_5), _______,     _______, _______, RALT(KC_U), _______, RALT(KC_O), _______, KC_F12,
   _______,    RALT(KC_A), RALT(KC_S),   _______,    _______,    _______,                          MS_LEFT, MS_DOWN,    MS_UP,   MS_RGHT,    _______, _______,
   MO(SYSTEM), LCTL(KC_Z), LSFT(KC_DEL), C_COPY,     C_PASTE,    _______,    _______,     _______, _______, _______,    _______, _______,    _______, _______,
-  _______,    _______,    _______,      _______,    _______,                                               MS_BTN3,    _______, _______,    _______, _______,
+  _______,    _______,    _______,      HYPR(KC_LEFT),    HYPR(KC_RIGHT),                                               HYPR(KC_UP),    HYPR(KC_DOWN), _______,    _______, _______,
                                                                    _______, _______,     _______, _______,
                                                                             _______,     _______,
                                                           _______, _______, _______,     _______, MS_BTN1, MS_BTN2
