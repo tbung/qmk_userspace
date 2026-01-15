@@ -1,3 +1,5 @@
+.build/
+
 # Junk files
 *.bak
 *.swp
