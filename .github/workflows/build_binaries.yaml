@@ -56,7 +56,7 @@ jobs:
       - name: Render images
         run: |
           qmk c2json --no-cpp -kb ergodox_ez/base -km tbung -o keymap.json
-          keymap -c .github/keymap_config.yaml parse -l default symbols misc -q keymap.json -o keymap.yaml
+          keymap -c .github/keymap_config.yaml parse -l default symbols misc system -q keymap.json -o keymap.yaml
           keymap -c .github/keymap_config.yaml draw -o keymap.svg keymap.yaml
           inkscape --export-background-opacity=0  ./keymap.svg -o keymap.png
 
